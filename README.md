@@ -1,7 +1,7 @@
-⚡ CM-Auto: Autonomous Builder
+CM-Auto: Autonomous Builder
 CM-Auto is a production-grade, multi-phase autonomous agent designed to turn a project brief into a fully functional, verified codebase. It handles hardware feasibility analysis, system architecture, model selection for ROCm/CUDA/Ollama, code generation, and automated self-healing through a "Syntax → Import → Pytest" verification pipeline.
 
-🚀 Key Features
+Key Features
 Phase 0 Feasibility Audit: Analyzes your project brief against real-time hardware telemetry (VRAM, CPU, RAM) to ensure the goal is achievable before a single line of code is written.
 
 Intelligent Model Orchestration: Automatically selects and launches optimized models (e.g., Qwen3-VL for vision, DeepSeek for coding) based on available VRAM and performance needs.
@@ -12,7 +12,7 @@ Robust Lifecycle Management: Features atomic checkpointing for resuming interrup
 
 Local-First AI: Built specifically for local inference environments, supporting vLLM (ROCm/CUDA) and Ollama with sequential loading to prevent VRAM contention.
 
-🛠️ System Requirements
+System Requirements
 OS: Ubuntu 24.04 LTS (recommended).
 
 Hardware: AMD (ROCm) or NVIDIA (CUDA) GPU.
