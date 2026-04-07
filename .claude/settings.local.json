@@ -1,0 +1,18 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python -c \"import ast; ast.parse\\(open\\(''build.py''\\).read\\(\\)\\); print\\(''Syntax OK''\\)\")",
+      "Bash(python -c \"import ast; ast.parse\\(open\\(''build.py'', encoding=''utf-8''\\).read\\(\\)\\); print\\(''Syntax OK''\\)\")",
+      "Bash(python -c \":*)",
+      "Bash(python -m pytest tests/test_config.py::test_load_config_invalid_json -xvs)",
+      "Read(///spicysnickers/WalterP/cmauto/venv/bin/**)",
+      "Read(///spicysnickers/WalterP/cmauto/venv/Scripts/**)",
+      "Read(///spicysnickers/WalterP//**)",
+      "Bash(./venv/bin/python -m pytest tests/test_config.py::test_load_config_invalid_json -xvs)",
+      "Bash(./venv/bin/pytest tests/test_config.py::test_load_config_invalid_json -xvs)",
+      "Bash(python -m pytest tests/test_watcher.py -x --tb=short)",
+      "Bash(pip install:*)",
+      "Bash(python -m pytest tests/test_watcher.py -v --tb=short)"
+    ]
+  }
+}

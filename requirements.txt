@@ -1,0 +1,24 @@
+# Core ML and API libraries
+requests>=2.31.0
+numpy>=1.24.0
+openai>=1.30.0
+
+# Database and vector storage
+chromadb>=0.4.22
+# sqlite3 is built into Python standard library — no pip package needed
+
+# Web framework for dashboard
+fastapi>=0.110.0
+uvicorn[standard]>=0.29.0
+jinja2>=3.1.0
+python-multipart>=0.0.6
+
+# Async file operations
+aiofiles>=23.2.0
+
+# Video frame extraction
+opencv-python-headless>=4.9.0
+
+# Testing framework
+pytest>=8.0.0
+pytest-asyncio>=0.23.0

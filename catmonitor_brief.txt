@@ -1,0 +1,103 @@
+PROJECT GOAL
+Build a fully local, autonomous AI agent that processes motion-triggered security camera footage from a backyard stray cat feeding station. The system identifies individual cats across visits, tracks their health over time, and reasons about observations — all without cloud services or human intervention.
+
+HARDWARE
+Component	Details
+CPU	AMD Ryzen 9 9900x
+GPU	AMD Radeon AI Pro R9700 — 32GB VRAM
+RAM	64 GB DDR5
+Storage	1 TB NVMe  ·  8 TB SATA  ·  24 TB External
+OS	Ubuntu 24.04 LTS
+Cameras	Reolink — Platform Front + Platform Right (motion-triggered FTP upload)
+Cloud Services	None — fully local inference, no API costs
+
+
+
+CONSTRAINTS
+•	All inference must run locally — no cloud API calls at runtime.
+•	Images arrive via FTP drop into /uploads. Do NOT run an FTP server — watch the folder for completed files.
+•	Confidence threshold for flagging a new cat as uncertain: distance 0.25–0.45; new cat: distance >= 0.45.
+•	Frames must be resized to 640px wide before sending to the vision model (~238 tokens vs ~8000 for full 4K).
+•	Agent loop capped at max_iterations = 10 to prevent runaway processing.
+•	The system must survive a reboot: all services startable with a single shell script.
+
+REQUIRED COMPONENTS
+1. Folder Watcher 
+Monitors the FTP drop folder for new video files. Waits for upload completion (file size stable for 3 seconds), then triggers the agent loop. Runs indefinitely and logs all activity.
+
+2. Frame Extractor 
+Extracts the best frames from each video clip using an async pipeline. FFmpeg extracts 1fps and resizes to 640px in one pass. Each frame is scored 1–10 by the vision model for cat visibility, sharpness, angle, and lighting. The top 4 frames are selected with a minimum 3-second spacing for temporal diversity.
+
+3. Vision Tool
+Sends a single frame to the vLLM endpoint and returns a structured JSON description of any cats present. Controlled vocabularies are used throughout (e.g. body_condition: poor / fair / good / excellent). The camera name is read from overlay text in the image itself.
+
+4. Cat Identity Engine
+The core of autonomous cat identification. Uses SQLite for structured facts and ChromaDB for vector-based identity matching. Each cat's identity is stored as an image embedding produced by Qwen3-VL-Embedding-2B, updated by averaging confirmed visit embeddings over time.
+
+Matching logic:
+•	Hard filter: coat_color AND eye_color must match in ChromaDB metadata (when both known).
+•	Distance < 0.25 — known cat, update profile and average embedding.
+•	Distance 0.25–0.45 — uncertain match, flagged for review.
+•	Distance >= 0.45 — new cat, create profile with UUID.
+
+5. Agent Loop — agent/loop.py
+The reasoning core. Implements a tool-use loop: the model decides what to do, we execute it, feed the result back, and repeat until the model signals done. Tools: extract_best_frames(), analyze_cat_image(), process_visit().
+
+6. Reflective Agent
+A second agent mode that runs during idle periods and reasons over visit history rather than individual clips. Detects health trends, absence patterns, and statistical deviations from baselines. Delegates quantitative computation to the coding model
+
+7. Database Layer 
+SQLite database at /data/catmonitor.db. Key tables: cats (cat_id, first_seen, last_seen, visit_count, description, status), visits (visit_id, cat_id, timestamp, camera, clip_path, behavior, body_condition, health_flags, confidence, best_frame_path), alerts, and links (for provisional returning-cat candidates).
+
+8. Dashboard & Human Override 
+A low-friction interface presenting evidence for human correction. When a correction is made, the system unlinks the visit, reassigns identity, recomputes the affected prototype, and triggers a reflective audit of other low-confidence matches. Human judgment is captured as data, not lost.
+
+
+VISION OUTPUT FORMAT
+The vision tool returns structured JSON for each analyzed frame. The agent loop validates this schema; if parsing fails, the visit is logged with confidence = 0.0 as a fail-safe.
+
+Field	Values
+cat_present	true | false
+coat_color	Controlled vocabulary (e.g. orange, black, tabby)
+eye_color	Controlled vocabulary — or unknown if not visible
+body_condition	poor | fair | good | excellent
+health_flags	Array — empty if nothing notable
+distinctive_markings	Array — empty if nothing notable
+confidence	low | medium | high
+camera	Read from overlay text in the image
+
+CAT POPULATION MODEL
+The feeding station serves a small, fluid population — typically no more than 4 active cats at any time. Cat status values:
+
+Status	Description
+Active	Visiting regularly now
+Absent	Known cat that has stopped coming — could return
+New	Never seen before — needs a new identity
+Returning	Was absent, now back — same identity, not a new cat
+Provisional Link	Possible returning cat — evidence accumulating, not yet confirmed
+
+LOGGING
+•	Use Python's standard logging module throughout.
+•	Write to /data/logs/catmonitor.log at INFO level.
+•	Rotate daily, keep 14 days of log files.
+•	All unhandled exceptions must be logged before the process exits.
+
+STARTUP
+Generate a start.sh that:
+1.	Checks ROCm is available (rocm-smi must exit 0).
+2.	Starts the vLLM vision container (port 8000) and waits for the endpoint to respond.
+3.	Starts the vLLM embedding container (port 8001) and waits for the endpoint to respond.
+4.	Starts Ollama on the host and pulls Qwen2.5-Coder-7B if not already present.
+5.	Launches the folder watcher and (when ready) the dashboard as background processes.
+6.	Prints 'System ready' when all components are up.
+7.	Writes a PID file to /data/catmonitor.pid for the supervisor.
+
+KNOWN ISSUES & DECISIONS
+Issue	Resolution
+Plastic trigger	Piece of plastic moving in wind triggers motion sensor. Fix in Reolink app — draw motion zone excluding the plastic.
+Clip length	Default 30s clips. Reduce to 15s in Reolink — sufficient for identification, halves processing time.
+Eye color (overhead cam)	Platform Right is overhead — hard filter relaxed to image-only when eye color is unknown.
+Tabby stripe washout	Bright light on Platform Front washes out stripe detail. Software fallback: image embedding is not affected.
+FTP permissions	Manually uploaded files may have wrong permissions. Fix: sudo chown -R walterp:walterp /uploads/
+GPU memory fault	ROCm throws memory fault on unclean Docker stop. Fix: docker stop $(docker ps -q) then check rocm-smi.
+Context window	max-model-len 16384. Always resize frames to 640px wide before sending.
